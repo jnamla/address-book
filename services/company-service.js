@@ -2,60 +2,122 @@ var Company = require('../models/company').Company;
 
 exports.addCompany = function(company, next) {
   var newCompany = new Company({
-    isPrivate: company.isPrivate,
+    isFreeLance: company.isFreeLance,
     name: company.name,
     bDescription: company.bDescription,
     email: company.email.toLowerCase(),
-    uniqueId: company.uniqueId.toLowerCase(),
     industry: company.industry,
     street: company.street,
     city: company.city,
     state: company.state,
     country: company.country,
     postCode: company.postCode,
-    //addedBy: company.addedBy, should be obtainded from the session
+    //owner: user,
+    disableDate: company.disableDate,
     created: company.created
   });
   
   newCompany.save(function(err, savedCompany) {
     if (!err) {
-      return next(null, savedCompany._id);
+      return next(null, {success: true, company: savedCompany});
     }  
     next(err);
   });
 };
 
-exports.updateCompany = function(companyId, updatableData, next) {
-  // Verifica actualización de datos enviados
-  Company.findByIdAndUpdate(companyId, { $set: updatableData }, function (err, updatedCompany) {
-  if (!err) {
-      return next(null, updatedCompany);
-    }  
-    next(err);
-  });
-};
-
-exports.removeCompany = function(id, next) {
-  Company.findOne({_id:id}, function (err) {
+exports.updateCompany = function(updatableData, next) {
+  
+  // Find the company by unique identifier
+  this.findCompanyBykey(updatableData, function (err, result) {
     if (err) {
-      next(err);
+      next(err, result);
     } 
     else {
-      next(null, {success:true})
+      if (!result.company) {
+        next(null, {success:false, error: "The Company couldnt be found."});
+      } else {
+        // Removes email data to prevent the update of that field
+        delete updatableData["email"];
+      
+        Company.update({ _id: result.company._id}, {$set: updatableData}, function (err, updatedCompany) {
+        if (!err) {
+            return next(null, updatedCompany, {success:true, company: updatedCompany});
+          }  
+          next(err, {success:false , error: "Company not updated"});
+        });
+      }
     }
   });
 };
 
-exports.findCompany = function(uniqueId, next) {
-  Company.findOne({uniqueId: uniqueId.toLowerCase()}, function(err, company) {
-    next(err, company);    
+exports.removeCompany = function(keyValues, next) {
+  // Find the company by unique identifier
+  this.findCompanyBykey(keyValues, function (err, result) {
+    if (err) {
+      next(err, result);
+    } 
+    else {
+      if (!result.company) {
+        next(null, {success:false, error: "The Company couldnt be found."});
+      } else {
+      
+        Company.update({ _id: result.company._id}, {$set: {disableDate: new Date()}}, function (err, updatedCompany) {
+        if (!err) {
+            return next(null, updatedCompany, {success:true, message: "Company removed."});
+          }  
+          next(err, {success:false , error: "Company not removed."});
+        });
+      }
+    }
+  });
+};
+
+// Find company by defined key
+exports.findCompanyBykey= function(data, next) {
+  
+  Company.findOne({email: data.email.toLowerCase()}, function(err, company) {
+    if (err) {
+      next(err, {success:false});
+    }
+    next(err, {success:false, company: company});
+  });
+  
+};
+
+// FindCompany Filters
+exports.findCompany = function(filters, next) {
+  
+  // Regular expresion to simplify the search
+  for (var entry in filters) {
+    if (filters[entry] != null && filters[entry] != undefined && filters[entry] != "") {
+      filters[entry] = new RegExp(filters[entry], 'i');
+    } else {
+      delete filters[entry];  
+    }
+  }  
+  
+  filters['disableDate'] = null;
+  
+  Company.find(filters, function(err, companies) {
+    if (err) {
+      next(err);
+    } 
+    else {
+      next(null, {success: true, companies: companies});
+    }   
   });
 };
 
 exports.searchCompanyName = function(name, next) {
+  
   var re = new RegExp(name, 'i');
 
-  Company.find({name: re}, function(err, companies) {
-    next(err, companies);    
+  Company.find({name: re, disableDate:null}, function(err, companies) {
+    if (err) {
+      next(err);
+    } 
+    else {
+      next(null, {success: true, companies: companies});
+    }    
   });
 };

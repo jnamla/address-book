@@ -7,7 +7,7 @@ router.get('/', function(req, res, next) {
   res.send('respond with a resource');
 });
 
-/* GET users listing. */
+/* GET redirect to the create page. */
 router.get('/create', function(req, res, next) {
   var vm = {
     title: 'Create a company'
@@ -17,11 +17,12 @@ router.get('/create', function(req, res, next) {
   res.send('in get/create');
 });
 
+/* POST company creation. */
 router.post('/create', function(req, res, next) {
   companyService.addCompany(req.body, function(err, companyId) {
     if (err) {
       console.log(err);
-      res.send('error in post/create');
+      res.status(500).json({success: false, error: "Create company process failed."});
     }
     //res.redirect('/contacts');
     res.json(companyId);
@@ -29,10 +30,11 @@ router.post('/create', function(req, res, next) {
 });
 
 router.post('/update', function(req, res, next) {
-  companyService.updateCompany(req.query.id,req.body, function(err, company) {
+  
+  companyService.updateCompany(req.body, function(err, company) {
     if (err) {
       console.log(err);
-      res.send('error in post/update');
+     res.status(500).json({success: false, error: "Update company process failed."});
     }
     //res.redirect('/contacts');
     res.json(company);
@@ -43,7 +45,7 @@ router.post('/remove', function(req, res, next) {
   companyService.removeCompany(req.body, function(err, result) {
     if (err) {
       console.log(err);
-      res.send('error in post/create');
+      res.status(500).json({success: false, error: "Delete company process failed."});
     }
     //res.redirect('/contacts');
     res.json(result);
@@ -61,7 +63,19 @@ router.get('/search_company_name', function(req, res, next) {
     
     res.json(foundCompanies);
   });
+});
+
+// Search companies by filters
+router.post('/search', function(req, res, next) {
   
+  companyService.findCompany(req.body, function(err, foundCompanies) {
+    if (err) {
+      console.log(err);
+      return res.status(500).json({error: 'Failed to retrieve companies'});
+    }
+    
+    res.json(foundCompanies);
+  });
 });
 
 module.exports = router;
