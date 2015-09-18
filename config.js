@@ -1,5 +1,5 @@
 var config = {};
 
-config.mongoUri = 'mongodb://localhost:27017/cymplar';
+config.mongoUri = process.env.MONGOLAB_URI || 'mongodb://localhost:27017/cymplar';
 
 module.exports = config;
