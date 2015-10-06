@@ -1,123 +1,159 @@
-var Company = require('../models/company').Company;
-
+var companyModel = require('../models/company');
+  
 exports.addCompany = function(company, next) {
-  var newCompany = new Company({
-    isFreeLance: company.isFreeLance,
-    name: company.name,
-    bDescription: company.bDescription,
-    email: company.email.toLowerCase(),
-    industry: company.industry,
-    street: company.street,
-    city: company.city,
-    state: company.state,
-    country: company.country,
-    postCode: company.postCode,
-    //owner: user,
-    disableDate: company.disableDate,
-    created: company.created
-  });
   
-  newCompany.save(function(err, savedCompany) {
-    if (!err) {
-      return next(null, {success: true, company: savedCompany});
-    }  
-    next(err);
-  });
+  if (!company.informal){
+    var newFormalCompany = new companyModel.FormalCompany({
+      admin: company.temp.admin,
+      country: company.country,
+      state: company.state,
+      city: company.city,
+      postCode: company.postCode,
+      streetName: company.streetName,
+      name: company.name,
+      cDescription: company.cDescription,
+      industryType: company.industryType,
+      field: company.field,
+      website: company.website,
+      businessNumber: company.businessNumber,
+      created: Date.now()
+    });
+    
+    newFormalCompany.save(function(err, savedCompany) {
+      if (!err) {
+        return next(null, {success: true, data: savedCompany});
+      }  
+      next(err);
+    });
+    
+  } else {
+    var newInformalCompany = new companyModel.InformalCompany({
+      admin: company.temp.admin,
+      country: company.country,
+      state: company.state,
+      city: company.city,
+      postCode: company.postCode,
+      streetName: company.streetName,
+      name: company.name,
+      cDescription: company.cDescription,
+      created: Date.now()
+    });
+    
+    newInformalCompany.save(function(err, savedCompany) {
+      if (!err) {
+        return next(null, {success: true, data: savedCompany});
+      }  
+      next(err);
+    });
+  }
 };
 
-exports.updateCompany = function(updatableData, next) {
+exports.updateCompany = function(query, updatableData, next) {
   
   // Find the company by unique identifier
-  this.findCompanyBykey(updatableData, function (err, result) {
+  this.findCompanyBykey(query, function (err, result) {
     if (err) {
       next(err, result);
     } 
     else {
-      if (!result.company) {
-        next(null, {success:false, error: "The Company couldnt be found."});
+      if (!result.data) {
+        next(null, {success: false, error: "The Company couldnt be found."});
       } else {
-        // Removes email data to prevent the update of that field
-        delete updatableData["email"];
+        // Removes email data to prevent the update of key fields
+        delete updatableData["name"];
+        delete updatableData["admin"];
       
-        Company.update({ _id: result.company._id}, {$set: updatableData}, function (err, updatedCompany) {
-        if (!err) {
-            return next(null, updatedCompany, {success:true, company: updatedCompany});
+        try {
+          for (var entry in updatableData) {
+            if (updatableData[entry] != undefined) {
+              result.data._doc[entry] = updatableData[entry];
+            } 
           }  
-          next(err, {success:false , error: "Company not updated"});
+          result.data.save();
+        }
+        catch(err) {
+            next(err, {success: false , error: "Company not updated"});
+        }
+
+        return next(null, {success: true, data: result.data._doc});
+
+      }
+    }
+  });
+};
+
+exports.removeCompany = function(query, next) {
+  
+  // Find the company by unique identifier
+  this.findCompanyBykey(query, function (err, result) {
+    if (err) {
+      next(err, result);
+    } 
+    else {
+      if (!result.data) {
+        next(null, {success: false, error: "The Company couldnt be found."});
+      } else {
+        
+        companyModel.Company.remove({ _id: result.data._doc._id}, function (err, removedCompany) {
+        if (!err) {
+            return next(null, removedCompany, {success: true, message: "Company removed."});
+          }  
+          next(err, {success: false , error: "Company not removed."});
         });
       }
     }
   });
 };
 
-exports.removeCompany = function(keyValues, next) {
-  // Find the company by unique identifier
-  this.findCompanyBykey(keyValues, function (err, result) {
+exports.removeCompanyById = function(query, next) {
+  
+  // Find the company by id
+  companyModel.Company.findByIdAndRemove({_id: query.id}, function (err, result) {
+    
     if (err) {
       next(err, result);
     } 
-    else {
-      if (!result.company) {
-        next(null, {success:false, error: "The Company couldnt be found."});
-      } else {
-      
-        Company.update({ _id: result.company._id}, {$set: {disableDate: new Date()}}, function (err, updatedCompany) {
-        if (!err) {
-            return next(null, updatedCompany, {success:true, message: "Company removed."});
-          }  
-          next(err, {success:false , error: "Company not removed."});
-        });
-      }
-    }
+    
+    return next(null, {success: true, message: "Company removed."});
   });
+  
 };
-
 // Find company by defined key
-exports.findCompanyBykey= function(data, next) {
+exports.findCompanyBykey= function(query, next) {
   
-  Company.findOne({email: data.email.toLowerCase()}, function(err, company) {
+  // search company by query parameters so far name and admin
+  companyModel.Company.findOne({$or:[{_id: query.id},
+                      {admin: query.admin, name: query.name}]}, function(err, results) {
     if (err) {
       next(err, {success:false});
     }
-    next(err, {success:false, company: company});
+    next(err, {success: true, data: results});
   });
   
 };
 
 // FindCompany Filters
-exports.findCompany = function(filters, next) {
+exports.findCompany = function(parent, filters, next) {
   
   // Regular expresion to simplify the search
   for (var entry in filters) {
-    if (filters[entry] != null && filters[entry] != undefined && filters[entry] != "") {
-      filters[entry] = new RegExp(filters[entry], 'i');
+    if (filters[entry] != null && filters[entry] != undefined && filters[entry] != "" ) {
+        filters[entry] = new RegExp(filters[entry], 'i');
     } else {
       delete filters[entry];  
     }
   }  
   
-  filters['disableDate'] = null;
+  for (var entry in parent) {
+    filters[entry] = parent[entry];  
+  }
   
-  Company.find(filters, function(err, companies) {
+  companyModel.Company.find(filters, function(err, companies) {
     if (err) {
       next(err);
     } 
     else {
-      next(null, {success: true, companies: companies});
+      next(null, {success: true, data: companies});
     }   
-  });
-};
-
-exports.searchCompanyName = function(name, next) {
-  
-  var re = new RegExp(name, 'i');
-
-  Company.find({name: re, disableDate:null}, function(err, companies) {
-    if (err) {
-      next(err);
-    } 
-    else {
-      next(null, {success: true, companies: companies});
-    }    
   });
 };

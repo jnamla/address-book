@@ -3,17 +3,15 @@ var Contact = require('../models/contact').Contact;
 exports.addContact = function(contact, next) {
   
   var newContact = new Contact({
-    fullName: contact.fullName,
-    position: contact.position,
-    phone: contact.phone,
-    mobile: contact.mobile,
-    email: contact.email.toLowerCase(),
-    skype: contact.skype,
-    personalEmail: contact.personalEmail,
-    intensity: contact.intensity,
-    stage: contact.stage,
-    disableDate: contact.disableDate,
-    created: contact.created
+    
+  company: contact.company,
+  name: contact.name,
+  position: contact.position,
+  contactNumber: contact.contactNumber,
+  altContactNumber: contact.altContactNumber,
+  email: contact.email.toLowerCase(),
+  webPreferedMedia: contact.webPreferedMedia,
+  created: contact.created
   });
   
   newContact.save(function(err, savedContact) {
@@ -24,23 +22,25 @@ exports.addContact = function(contact, next) {
   });
 };
 
-exports.updateContact = function(updatableData, next) {
-  
+exports.updateContact = function(query, updatableData, next) {
+
   // Find the contact by unique identifier
-  this.findContactBykey(updatableData, function (err, result) {
+  this.findContactBykey(query, function (err, result) {
     if (err) {
       next(err, result);
     } 
     else {
-      if (!result.contact) {
+      if (!result.data) {
         next(null, {success:false, error: "The Contact couldnt be found."});
       } else {
         // Removes email data to prevent the update of that field
+        delete updatableData["name"];
         delete updatableData["email"];
-      
-        Contact.update({ _id: result.contact._id}, {$set: updatableData}, function (err, updatedContact) {
+        delete updatableData["company"];
+        
+        Contact.update({ _id: result.data._id}, {$set: updatableData}, function (err, updatedContact) {
         if (!err) {
-            return next(null, updatedContact, {success:true, contact: updatedContact});
+            return next(null, updatedContact, {success:true, data: updatedContact});
           }  
           next(err, {success:false , error: "Contact not updated"});
         });
@@ -49,9 +49,9 @@ exports.updateContact = function(updatableData, next) {
   });
 };
 
-exports.removeContact = function(keyValues, next) {
+exports.removeContact = function(query, next) {
   // Find the contact by unique identifier
-  this.findContactBykey(keyValues, function (err, result) {
+  this.findContactBykey(query, function (err, result) {
     if (err) {
       next(err, result);
     } 
@@ -60,7 +60,7 @@ exports.removeContact = function(keyValues, next) {
         next(null, {success:false, error: "The Contact couldnt be found."});
       } else {
       
-        Contact.update({ _id: result.contact._id}, {$set: {disableDate: new Date()}}, function (err, updatedContact) {
+        Contact.remove({ _id: result.data._id}, function (err, updatedContact) {
         if (!err) {
             return next(null, updatedContact, {success:true, message: "Contact removed."});
           }  
@@ -72,19 +72,19 @@ exports.removeContact = function(keyValues, next) {
 };
 
 // Find contact by defined key
-exports.findContactBykey= function(data, next) {
+exports.findContactBykey= function(query, next) {
   
-  Contact.findOne({email: data.email.toLowerCase()}, function(err, contact) {
+  Contact.findOne({$or:[{_id: query.id},
+                      {company: query.company, email: query.email.toLowerCase()}]}, function(err, contact) {
     if (err) {
       next(err, {success:false});
     }
-    next(err, {success:false, contact: contact});
+    next(err, {success:false, data: contact._doc});
   });
-  
 };
 
 // FindContact Filters
-exports.findContact = function(filters, next) {
+exports.findContact = function(parent, filters, next) {
   
   // Regular expresion to simplify the search
   for (var entry in filters) {
@@ -95,14 +95,17 @@ exports.findContact = function(filters, next) {
     }
   }  
   
-  filters['disableDate'] = null;
+  
+  for (var entry in parent) {
+    filters[entry] = parent[entry];  
+  }
   
   Contact.find(filters, function(err, companies) {
     if (err) {
       next(err);
     } 
     else {
-      next(null, {success: true, companies: companies});
+      next(null, {success: true, data: companies});
     }   
   });
 };

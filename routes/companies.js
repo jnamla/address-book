@@ -1,81 +1,78 @@
-var express = require('express');
-var router = express.Router();
 var companyService = require('../services/company-service');
 
-/* GET users listing. */
-router.get('/', function(req, res, next) {
-  res.send('respond with a resource');
-});
-
-/* GET redirect to the create page. */
-router.get('/create', function(req, res, next) {
-  var vm = {
-    title: 'Create a company'
+var companies = {
+  
+  search: function(req, res) {
     
-  };
-  //res.render('companies/create', vm);
-  res.send('in get/create');
-});
-
-/* POST company creation. */
-router.post('/create', function(req, res, next) {
-  companyService.addCompany(req.body, function(err, companyId) {
-    if (err) {
-      console.log(err);
-      res.status(500).json({success: false, error: "Create company process failed."});
-    }
-    //res.redirect('/contacts');
-    res.json(companyId);
-  });
-});
-
-router.post('/update', function(req, res, next) {
-  
-  companyService.updateCompany(req.body, function(err, company) {
-    if (err) {
-      console.log(err);
-     res.status(500).json({success: false, error: "Update company process failed."});
-    }
-    //res.redirect('/contacts');
-    res.json(company);
-  });
-});
-
-router.post('/remove', function(req, res, next) {
-  companyService.removeCompany(req.body, function(err, result) {
-    if (err) {
-      console.log(err);
-      res.status(500).json({success: false, error: "Delete company process failed."});
-    }
-    //res.redirect('/contacts');
-    res.json(result);
-  });
-});
-
-// Search companies by name for autocomplete
-router.get('/search_company_name', function(req, res, next) {
-  
-  companyService.searchCompanyName(req.query.name, function(err, foundCompanies) {
-    if (err) {
-      console.log(err);
-      return res.status(500).json({error: 'Failed to retrieve companies'});
+    var basicQueryData = {}; 
+    
+    if (!req.body.temp) {
+      basicQueryData = req.query;
+    } else {
+      basicQueryData = req.body.temp;
+      delete req.body.temp;
     }
     
-    res.json(foundCompanies);
-  });
-});
-
-// Search companies by filters
-router.post('/search', function(req, res, next) {
-  
-  companyService.findCompany(req.body, function(err, foundCompanies) {
-    if (err) {
-      console.log(err);
-      return res.status(500).json({error: 'Failed to retrieve companies'});
-    }
+    companyService.findCompany(basicQueryData, req.body, function(err, results) {
+      if (err) {
+        console.log(err);
+        res.status(500).json({success: false, error: err});
+      }
+      
+      res.json(results);
+    });
+  },
+ 
+  create: function(req, res, next) {
+    companyService.addCompany(req.body, function(err, results) {
+      if (err) {
+        console.log(err);
+        res.status(500).json({success: false, error: err});
+      }
+      
+      res.json(results);
+    });
+  },
+ 
+  update: function(req, res, next) {
     
-    res.json(foundCompanies);
-  });
-});
-
-module.exports = router;
+    var basicQueryData = !req.body.temp ? req.query: req.body.temp;
+    
+    companyService.updateCompany(basicQueryData, req.body, function(err, results) {
+      if (err) {
+        console.log(err);
+        res.status(500).json({success: false, error: err});
+      }
+      
+      res.json(results);
+    });
+  },
+ 
+  remove: function(req, res, next) {
+    
+    var basicQueryData = !req.body.temp ? req.query: req.body.temp;
+    
+    companyService.removeCompany(basicQueryData, function(err, results) {
+      if (err) {
+        console.log(err);
+        res.status(500).json({success: false, error: err});
+      }
+      
+      res.json(results);
+    });
+  },
+  
+  removeById: function(req, res, next) {
+    
+    companyService.removeCompanyById(req.query, function(err, results) {
+      if (err) {
+        console.log(err);
+        res.status(500).json({success: false, error: err});
+      }
+      
+      res.json(results);
+    });
+  }
+};
+ 
+module.exports = companies;

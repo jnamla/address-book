@@ -7,11 +7,14 @@ var bodyParser = require('body-parser');
 var mongoose = require('mongoose');
 
 var routes = require('./routes/index');
-var companies = require('./routes/companies');
-var contacts = require('./routes/contacts');
+var requestValidation = require('./middleware/jwt-service');
+/*var companies = require('./routes/companies');
 
-var config = require('./config');
-mongoose.connect(config.mongoUri);
+var independents = require('./routes/independents');
+var contacts = require('./routes/contacts');
+*/
+var config = require('./bin/config');
+mongoose.connect(config.mongodb.uri);
 
 var app = express();
 
@@ -27,9 +30,30 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+//CORS in express
+app.all('/*', function(req, res, next) {
+  // CORS headers
+  res.header("Access-Control-Allow-Origin", "*"); // restrict it to the required domain
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  // Set custom headers for CORS
+  res.header('Access-Control-Allow-Headers', 'Content-type,Accept,X-Access-Token,X-Key');
+  if (req.method == 'OPTIONS') {
+    res.status(200).end();
+  } else {
+    next();
+  }
+});
+
+// Auth Middleware - This will check if the token is valid
+//app.all('/api/*', [requestValidation]);
+ 
 app.use('/', routes);
+
+/*
 app.use('/api/companies', companies);
+app.use('/api/independents', independents);
 app.use('/api/contacts', contacts);
+*/
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
